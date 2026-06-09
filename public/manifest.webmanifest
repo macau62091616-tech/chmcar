@@ -1,0 +1,41 @@
+{
+  "name": "CHM Car · 港澳大灣區叫車・酒店・演唱會",
+  "short_name": "CHM Car",
+  "description": "旅行社點對點叫車（香港・澳門・大陸）、澳門酒店訂房、演唱會購票一站式平台。",
+  "id": "/",
+  "start_url": "./index.html?source=pwa",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait-primary",
+  "background_color": "#0B2A4A",
+  "theme_color": "#0B2A4A",
+  "lang": "zh-Hant",
+  "dir": "ltr",
+  "categories": ["travel", "transportation", "shopping"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "叫車 Book a Car",
+      "short_name": "叫車",
+      "url": "./index.html#/car",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "澳門酒店 Macau Hotels",
+      "short_name": "酒店",
+      "url": "./index.html#/hotel",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "演唱會購票 Concerts",
+      "short_name": "演唱會",
+      "url": "./index.html#/concert",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

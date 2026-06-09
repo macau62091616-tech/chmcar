@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CHM Car · 管理後台 Dispatch</title>
+<style>
+  :root{--navy:#0B2A4A;--teal:#1E6F8E;--gold:#D6A854;--bg:#eef1f6;--surface:#fff;--text:#13212f;--muted:#5f7180;--border:#e3e9f0;--ok:#1f8e6f;--warn:#b4791b;--danger:#c84747}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"PingFang HK","PingFang SC",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text)}
+  header{background:linear-gradient(120deg,var(--navy),var(--teal));color:#fff;padding:14px 18px;display:flex;align-items:center;justify-content:space-between}
+  header b{font-size:1.15rem;letter-spacing:.02em}
+  header .gold{color:var(--gold)}
+  main{max-width:1100px;margin:0 auto;padding:18px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;box-shadow:0 2px 8px rgba(11,42,74,.06);margin-bottom:16px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  input,select{padding:10px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:.95rem;font-family:inherit;background:#f6f8fb}
+  input:focus,select:focus{outline:none;border-color:var(--teal)}
+  button{cursor:pointer;border:none;border-radius:10px;padding:10px 16px;font-weight:700;font-family:inherit}
+  .btn{background:linear-gradient(120deg,var(--navy),var(--teal));color:#fff}
+  .btn-sm{padding:7px 11px;font-size:.82rem;border-radius:8px}
+  .btn-ghost{background:#eef2f7;color:var(--text);border:1px solid var(--border)}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+  .stat{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px}
+  .stat b{display:block;font-size:1.5rem;color:var(--navy)}
+  .stat span{color:var(--muted);font-size:.82rem}
+  table{width:100%;border-collapse:collapse;font-size:.88rem}
+  th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--muted);font-size:.76rem;text-transform:uppercase;letter-spacing:.04em}
+  .pill{display:inline-block;padding:3px 9px;border-radius:999px;font-size:.74rem;font-weight:700}
+  .s-pending_payment{background:#fff3e0;color:var(--warn)} .s-paid{background:#e6f4ef;color:var(--ok)}
+  .s-assigned{background:#e7eefb;color:#3f5f9e} .s-completed{background:#e9f7f1;color:var(--ok)}
+  .s-cancelled,.s-expired{background:#fdeaea;color:var(--danger)}
+  .type{font-weight:800}
+  .muted{color:var(--muted)} .right{text-align:right}
+  .hidden{display:none}
+  .login{max-width:380px;margin:60px auto}
+  .login h2{margin:0 0 14px} .login .row{flex-direction:column;align-items:stretch;gap:10px}
+  .err{color:var(--danger);font-size:.85rem;min-height:1.2em}
+  .filters button.active{background:var(--gold);color:#3a2a08}
+</style>
+</head>
+<body>
+<header>
+  <b>CHM<span class="gold">Car</span> · 管理後台 Dispatch</b>
+  <div id="who" class="hidden"><span id="whoName" class="muted" style="color:#cfe0ec;margin-right:10px"></span><button class="btn-ghost btn-sm" id="logout">登出 Logout</button></div>
+</header>
+<main>
+  <!-- login -->
+  <section id="loginView" class="card login">
+    <h2>管理員登入 Admin Login</h2>
+    <div class="row">
+      <input id="email" type="email" placeholder="admin@chmcar.com" autocomplete="username" />
+      <input id="pass" type="password" placeholder="密碼 Password" autocomplete="current-password" />
+      <button class="btn" id="loginBtn">登入 Login</button>
+      <div class="err" id="loginErr"></div>
+      <p class="muted" style="font-size:.8rem;margin:4px 0 0">預設帳戶見 .env(ADMIN_EMAIL / ADMIN_PASSWORD)。</p>
+    </div>
+  </section>
+
+  <!-- dashboard -->
+  <section id="dash" class="hidden">
+    <div class="stats" id="stats"></div>
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <div class="row filters" id="filters">
+          <button data-f="" class="btn-ghost btn-sm active">全部 All</button>
+          <button data-f="car" class="btn-ghost btn-sm">🚗 叫車</button>
+          <button data-f="hotel" class="btn-ghost btn-sm">🏨 酒店</button>
+          <button data-f="concert" class="btn-ghost btn-sm">🎤 演唱會</button>
+        </div>
+        <button class="btn-ghost btn-sm" id="refresh">↻ 重新整理</button>
+      </div>
+      <div style="overflow-x:auto;margin-top:12px">
+        <table>
+          <thead><tr><th>訂單 Order</th><th>類型</th><th>內容</th><th>金額</th><th>狀態</th><th>司機 / 操作</th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+      <p class="muted" id="empty" style="text-align:center;padding:20px">—</p>
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const TKEY = "chmcar.admin.token";
+let token = localStorage.getItem(TKEY) || null;
+let drivers = [], filter = "";
+
+async function api(method, path, body) {
+  const h = { "content-type": "application/json" };
+  if (token) h.authorization = "Bearer " + token;
+  const r = await fetch("/api" + path, { method, headers: h, body: body ? JSON.stringify(body) : undefined });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || ("HTTP " + r.status));
+  return j;
+}
+const money = (n) => "HK$ " + Math.round(n).toLocaleString("en-US");
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+async function login() {
+  $("#loginErr").textContent = "";
+  try {
+    const r = await api("POST", "/auth/login", { email: $("#email").value.trim(), password: $("#pass").value });
+    if (r.user.role !== "admin") throw new Error("需要管理員帳戶 Admin only");
+    token = r.token; localStorage.setItem(TKEY, token);
+    enterDash(r.user);
+  } catch (e) { $("#loginErr").textContent = e.message; }
+}
+function enterDash(user) {
+  $("#loginView").classList.add("hidden");
+  $("#dash").classList.remove("hidden");
+  $("#who").classList.remove("hidden");
+  $("#whoName").textContent = (user && (user.name || user.email)) || "admin";
+  loadAll();
+}
+function logout() { token = null; localStorage.removeItem(TKEY); location.reload(); }
+
+async function loadAll() {
+  try {
+    const [s, d] = await Promise.all([api("GET", "/admin/stats"), api("GET", "/admin/drivers")]);
+    drivers = d.drivers;
+    renderStats(s);
+    await loadOrders();
+  } catch (e) { if (String(e.message).includes("ADMIN") || String(e.message).includes("AUTH")) logout(); }
+}
+function renderStats(s) {
+  const bs = s.byStatus || {};
+  const cards = [
+    ["待付款", bs.pending_payment || 0], ["已付款", bs.paid || 0], ["已派車", bs.assigned || 0],
+    ["已完成", bs.completed || 0], ["已收入", money(s.paidRevenue || 0)]
+  ];
+  $("#stats").innerHTML = cards.map((c) => `<div class="stat"><b>${c[1]}</b><span>${c[0]}</span></div>`).join("");
+}
+async function loadOrders() {
+  const q = filter ? "?type=" + filter : "";
+  const { orders } = await api("GET", "/admin/orders" + q);
+  $("#empty").style.display = orders.length ? "none" : "block";
+  $("#empty").textContent = orders.length ? "" : "未有訂單 No orders";
+  $("#rows").innerHTML = orders.map(rowHTML).join("");
+}
+function rowHTML(o) {
+  const icon = { car: "🚗", hotel: "🏨", concert: "🎤" }[o.type] || "🧾";
+  let action = "<span class='muted'>—</span>";
+  if (o.type === "car" && (o.status === "paid" || o.status === "assigned")) {
+    const opts = drivers.map((d) => `<option value="${d.id}" ${o.driver_id === d.id ? "selected" : ""}>${esc(d.name)} (${d.vehicleClass}${d.crossBorder ? "·跨境" : ""})</option>`).join("");
+    action = `<select data-assign="${o.id}"><option value="">— 指派司機 —</option>${opts}</select>`;
+  } else if (o.driver_name) action = "👤 " + esc(o.driver_name);
+  const canComplete = o.status === "assigned" || o.status === "paid";
+  const complete = canComplete ? `<button class="btn-ghost btn-sm" data-complete="${o.id}">完成</button>` : "";
+  const cancel = (o.status !== "cancelled" && o.status !== "completed") ? `<button class="btn-ghost btn-sm" data-cancel="${o.id}">取消</button>` : "";
+  return `<tr>
+    <td><b>${esc(o.id)}</b><div class="muted">${esc((o.created_at || "").slice(0, 16).replace("T", " "))}</div><div class="muted">${esc(o.contact_name || "")} ${esc(o.contact_phone || "")}</div></td>
+    <td class="type">${icon}</td>
+    <td>${esc(o.title)}<div class="muted">${esc(o.sub || "")}</div><div class="muted">${esc(o.sub2 || "")}</div></td>
+    <td class="right">${money(o.amount)}</td>
+    <td><span class="pill s-${o.status}">${esc(o.status)}</span></td>
+    <td>${action} ${complete} ${cancel}</td>
+  </tr>`;
+}
+
+document.addEventListener("click", async (e) => {
+  const c = e.target.closest("[data-complete]"); const x = e.target.closest("[data-cancel]"); const f = e.target.closest("#filters [data-f]");
+  if (e.target.id === "loginBtn") return login();
+  if (e.target.id === "logout") return logout();
+  if (e.target.id === "refresh") return loadAll();
+  if (f) { filter = f.getAttribute("data-f"); document.querySelectorAll("#filters button").forEach((b) => b.classList.toggle("active", b === f)); return loadOrders(); }
+  try {
+    if (c) { await api("POST", "/admin/orders/" + c.getAttribute("data-complete") + "/status", { status: "completed" }); loadAll(); }
+    if (x) { if (confirm("取消此訂單?")) { await api("POST", "/admin/orders/" + x.getAttribute("data-cancel") + "/status", { status: "cancelled" }); loadAll(); } }
+  } catch (err) { alert(err.message); }
+});
+document.addEventListener("change", async (e) => {
+  const a = e.target.closest("[data-assign]");
+  if (a && a.value) { try { await api("POST", "/admin/orders/" + a.getAttribute("data-assign") + "/assign", { driverId: parseInt(a.value, 10) }); loadAll(); } catch (err) { alert(err.message); } }
+});
+$("#pass").addEventListener("keydown", (e) => { if (e.key === "Enter") login(); });
+
+// auto-enter if token present
+if (token) { api("GET", "/me").then((r) => { if (r.user && r.user.role === "admin") enterDash(r.user); else logout(); }).catch(() => logout()); }
+</script>
+</body>
+</html>
