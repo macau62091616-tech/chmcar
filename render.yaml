@@ -1,0 +1,34 @@
+# Render Blueprint — deploy CHM Car (API + PWA) as one web service.
+# In Render: New ➜ Blueprint ➜ point at this repo. Then fill the "sync:false" secrets.
+services:
+  - type: web
+    name: chmcar
+    runtime: node
+    region: singapore           # closest to HK/Macau; also: oregon, frankfurt
+    plan: starter               # 'starter' (paid) supports the persistent disk below.
+                                # Use 'free' to trial — but SQLite data resets on each deploy/restart.
+    buildCommand: npm install --omit=dev
+    startCommand: node server.js
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 22.16.0          # Node 22 ships the built-in node:sqlite used by this app
+      - key: DB_PATH
+        value: /var/data/chm.db # lives on the persistent disk
+      - key: HOLD_TTL_MS
+        value: "900000"
+      - key: JWT_SECRET
+        generateValue: true     # Render generates a strong secret
+      - key: ADMIN_EMAIL
+        value: admin@chmcar.com
+      - key: ADMIN_PASSWORD
+        sync: false             # set in dashboard (do not commit)
+      - key: STRIPE_SECRET_KEY
+        sync: false             # sk_test_... first; swap to sk_live_... when ready
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false             # whsec_... from the Stripe webhook you create
+    disk:
+      name: chmcar-data
+      mountPath: /var/data
+      sizeGB: 1

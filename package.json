@@ -1,0 +1,25 @@
+{
+  "name": "chmcar-fullstack",
+  "version": "1.0.0",
+  "description": "CHM Car — point-to-point rides (HK/Macau/Mainland), Macau hotels, concert tickets. Full-stack PWA.",
+  "type": "commonjs",
+  "main": "server.js",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "seed": "node src/seed.js",
+    "reseed": "node src/seed.js --force",
+    "test": "node test/api.test.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
+    "stripe": "^16.9.0"
+  },
+  "devDependencies": {
+    "jsdom": "^29.1.1"
+  }
+}
